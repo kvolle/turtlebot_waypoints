@@ -1,7 +1,7 @@
 import rospy
 import numpy as np
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, PoseStamped
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 TWO_PI = 6.28318
@@ -25,7 +25,8 @@ class TurtlebotWaypointController():
     def __init__():
         self.vel_msg = Twist()
         self.pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-        self.pose_sub = rospy.Subscriber('odom', Odometry ,self.pose_callback
+        self.odom_sub = rospy.Subscriber('pose_stamped_nwu', PoseStamped ,self.odom_callback)
+        self.pose_sub = rospy.Subscriber('odom', Odometry ,self.odom_callback)
 
         self.kd_p = 2.
         self.kh_p = 2.
@@ -46,13 +47,16 @@ class TurtlebotWaypointController():
         self.theta = 0.
         self.at_grid_point = 0
 
-    def pose_callback(data):
-        self.x = data.pose.pose.position.x
-        self.y = data.pose.pose.position.y
-        orientation_q = data.pose.pose.orientation
+    def pose_handler(pose):
+        self.x = pose.position.x
+        self.y = pose.position.y
+        orientation_q = pose.orientation
         orientation_list = [orientation_q.x, orientacdtion_q.y, orientation_q.z, orientation_q.w]
         (_, _, self.theta) = euler_from_quaternion (orientation_list)
-
+    def pose_stamped_callback(data):
+        self.pose_handler(data.pose)
+    def odom_callback(data):
+        self.pose_handler(data.pose.pose)
     def calc_vel():
         if (abs(self.dist_err) > 0.005):
             old_vel = self.vel_msg.linear.x
