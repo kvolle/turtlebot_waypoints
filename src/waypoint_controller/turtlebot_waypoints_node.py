@@ -126,11 +126,3 @@ class TurtlebotWaypointController():
 
         else:
         self.pub()
-            
-
-rospy.init_node('waypoint_controller')
-r = rospy.Rate(10) # 10hz
-turtle = TurtlebotWaypointController()
-while not rospy.is_shutdown():
-   turtle.step()
-   r.sleep()
