@@ -4,6 +4,9 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
+TWO_PI = 6.28318
+PI = 3.14159
+
 def sgn(a):
     if (a>0):
         return 1.
@@ -16,6 +19,7 @@ Y_MIN = 0.
 Y_MAX = 2.
 X_PTS = 5
 Y_PTS = 5
+N_HEADINGS = 8
 
 class TurtlebotWaypointController():
     def __init__():
@@ -40,18 +44,23 @@ class TurtlebotWaypointController():
         self.y = self.goal_y[0]
         self.goal_index = 0
         self.theta = 0.
+        self.at_grid_point = 0
 
     def pose_callback(data):
         self.x = data.pose.pose.position.x
         self.y = data.pose.pose.position.y
         orientation_q = data.pose.pose.orientation
-        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        orientation_list = [orientation_q.x, orientacdtion_q.y, orientation_q.z, orientation_q.w]
         (_, _, self.theta) = euler_from_quaternion (orientation_list)
 
     def calc_vel():
         if (abs(self.dist_err) > 0.005):
             old_vel = self.vel_msg.linear.x
             self.vel_msg.linear.x = min(self.max_x, self.k_p*np.cos(self.heading_err)*self.dist_err,max(0.05,1.1*old_vel))
+        else if (! self.at_grid_point):
+            self.at_grid_point = 1
+            self.commanded_yaw = np.linspace(self.theta, self.theta + TWO_PI, N_HEADINGS)
+            self.rotation_index=0
 
         if (abs(self.heading_err) > 0.00873):
             old_vel = self.vel_msg.angular.z
@@ -62,7 +71,14 @@ class TurtlebotWaypointController():
         y = self.goal_y[self.goal_index]
         self.dist_err = sqrt((x-self.x)*(x-self.x) + (y-self.y)*(y-self.y))
         #self.heading_err = approx_atan(y, self.goal_x) - self.theta
-        self.heading_err = np.arctan2(y, self.goal_x) - self.theta
+        if (self.at_grid_point):
+            self.heading_err = self.commanded_yaw[self.rotation_index] - self.theta
+        else:
+            self.heading_err = np.arctan2(y, self.goal_x) - self.theta
+        if (self.heading_err > PI):
+            self.heading_err = self.heading_err - TWO_PI
+        if (self.heading_err < -PI):
+            self.heading_err = self.heading_err + TWO_PI
 
     def pub():
         self.pub.publish(self.vel_msg)
