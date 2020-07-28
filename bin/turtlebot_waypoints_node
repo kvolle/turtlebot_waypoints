@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import turtlebot_waypoints.turtlebot_waypoints_node
+import turtlebot_waypoints.turtlebot_waypoints
 import rospy
 
 if __name__=='__main__':

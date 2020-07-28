@@ -10,6 +10,9 @@ project(turtlebot_waypoints)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+        geometry_msgs
+        nav_msgs
+        tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -159,7 +162,8 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 # install(PROGRAMS
-#   scripts/my_python_script
+#   src/waypoint_controller/turtlebot_waypoints_node.py
+#         bin/turtlebot_waypoints_node
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 
@@ -192,6 +196,7 @@ include_directories(
 # )
 
 catkin_install_python(PROGRAMS bin/turtlebot_waypoints_node
+        src/turtlebot_waypoints/turtlebot_waypoints.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 #############
 ## Testing ##
