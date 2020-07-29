@@ -16,6 +16,13 @@ def sgn(a):
     else:
         return -1.
 
+def wrap(a):
+    while(a > PI):
+        a -= TWO_PI
+    while(a < -PI):
+        a += TWO_PI
+    return a
+
 # Eventually move these constants to rosparams.
 X_MIN = 0.
 X_MAX = 2.
@@ -41,21 +48,33 @@ class TurtlebotWaypointController():
         # Define controller parameters
         self.kd_p = 2.
         self.kh_p = 2.
-        self.max_x = 2.
+        self.max_x = 0.6
         self.max_z = 0.5
         
         # Equally space points on each axis
-        xspace = np.linspace(X_MIN, X_MAX, X_PTS-1)
-        yspace = np.linspace(Y_MIN, Y_MAX, Y_PTS-1)
+        xspace = np.linspace(X_MIN, X_MAX, X_PTS)
+        yspace = np.linspace(Y_MIN, Y_MAX, Y_PTS)
+        yspace_neg = np.linspace(Y_MAX, Y_MIN, Y_PTS)
 
         # Convert points to meshgrid
-        self.goal_x, self.goal_y = np.meshgrid(xspace, yspace)
-        self.goal_x = np.reshape(self.goal_x, (-1))
-        self.goal_y = np.reshape(self.goal_y, (-1))
+        self.goal_x = np.empty((0))
+        self.goal_y = np.empty((0))
+        for x in xspace:
+            self.goal_x = np.append(self.goal_x, x*np.ones_like(yspace))
+            if (x % 2 == 0):
+                self.goal_y = np.append(self.goal_y, yspace)
+            else:
+                self.goal_y = np.append(self.goal_y, yspace_neg)
+        print(self.goal_x)
+        print(self.goal_y)
+
+        #self.goal_x, self.goal_y = np.meshgrid(xspace, yspace)
+        #self.goal_x = np.reshape(self.goal_x, (-1))
+        #self.goal_y = np.reshape(self.goal_y, (-1))
 
         # Initialize pose, heading, goal, and indices
-        self.x = self.goal_x[0]
-        self.y = self.goal_y[0]
+        self.x = -17.
+        self.y = -17.
         self.goal_index = 0
         self.rotation_index = 0
         self.theta = 0.
@@ -81,23 +100,34 @@ class TurtlebotWaypointController():
         # Pass gazebo data to pose_handler
         self.pose_handler(data.pose.pose)
     def calc_vel(self):
-        # Calculate the translational and rotational velocity
-        if (abs(self.dist_err) > TRANSLATION_THRESHOLD):
-            # If pointed at the desired goal, move towards it but without sudden acceleration
-            # Velocity is capped though
-            old_vel = self.vel_msg.linear.x
-            self.vel_msg.linear.x = min(self.max_x, self.k_p*np.cos(self.heading_err)*self.dist_err,max(0.05,1.1*old_vel))
-
-        elif (~self.at_grid_point):
-            # If within goal threshold, create a list of headings and reset index to zero  
-            self.at_grid_point = 1
-            self.commanded_yaw = np.linspace(self.theta, self.theta + TWO_PI, N_HEADINGS)
-            self.rotation_index=0
-
         if (abs(self.heading_err) > ROTATION_THRESHOLD):
-            # If not withing goal threshold, turn with a finite rotational acceleration
+            # Turn and nothing else
             old_vel = self.vel_msg.angular.z
-            self.vel_msg.angular.z = sgn(self.heading_err)*min(self.max_z, self.kh_p*abs(self.heading_err)), max(0.01,1.1*old_vel))
+            self.vel_msg.linear.x *= 0.9
+            self.vel_msg.angular.z = sgn(self.heading_err)*min(self.max_z, self.kh_p*abs(self.heading_err), max(0.03, 2*abs(old_vel)))
+            
+        elif (self.dist_err > TRANSLATION_THRESHOLD):
+            # Drive forward and nothing else
+            old_vel = self.vel_msg.linear.x
+            self.vel_msg.angular.z *= 0.9
+            self.vel_msg.linear.x = min(self.max_x, self.kd_p*self.dist_err*np.sqrt(self.dist_err), max(0.01, 1.1*old_vel))
+
+
+        else:
+            if (~self.at_grid_point):
+                self.at_grid_point = 1
+                self.commanded_yaw = np.linspace(self.theta, self.theta + TWO_PI, N_HEADINGS, endpoint=False)
+            if (self.rotation_index < N_HEADINGS):
+                if (self.samples < N_SAMPLES):
+                    self.samples +=1
+                else:
+                    self.samples = 0
+                    self.rotation_index += 1
+            else:
+                self.rotation_index = 0
+                self.goal_index += 1
+            # Stop and stay stationary.
+            # This needs measurement logic
 
     def get_error(self):
         # Calculate the distance and heading errors. By making the heading error be -pi to pi, the turns should always be the closest direction.
@@ -106,17 +136,23 @@ class TurtlebotWaypointController():
         y = self.goal_y[self.goal_index]
         self.dist_err = math.sqrt((x-self.x)*(x-self.x) + (y-self.y)*(y-self.y))
         #self.heading_err = approx_atan(y, self.goal_x) - self.theta
-        if (self.at_grid_point):
-            self.heading_err = self.commanded_yaw[self.rotation_index] - self.theta
+        #if (self.at_grid_point):
+        #    rospy.loginfo("HALP")
+        #    self.heading_err = self.commanded_yaw[self.rotation_index] - self.theta
+        #else:
+        #    self.heading_err = np.arctan2(y-self.y, x-self.x)# - self.theta
+        if self.at_grid_point:
+            self.heading_err = wrap(self.commanded_yaw[self.rotation_index]) - self.theta
         else:
-            self.heading_err = np.arctan2(y, self.goal_x) - self.theta
-        if (self.heading_err > PI):
-            self.heading_err = self.heading_err - TWO_PI
-        if (self.heading_err < -PI):
-            self.heading_err = self.heading_err + TWO_PI
+            self.heading_err = wrap(np.arctan2(y-self.y, x-self.x)) - self.theta
+        #if (self.heading_err > PI):
+        #    self.heading_err = self.heading_err - TWO_PI
+        #if (self.heading_err < -PI):
+        #    self.heading_err = self.heading_err + TWO_PI
 
-    def pub(self):
+    def pub_cmd(self):
         # Publish the commanded velocity
+        rospy.loginfo("D: %.3f H: %.3f X: %.3f Z: %.3f G: %d R: %d" % (self.dist_err, self.heading_err, self.vel_msg.linear.x, self.vel_msg.angular.z, self.goal_index, self.rotation_index))
         self.pub.publish(self.vel_msg)
 
     def step(self):
@@ -126,4 +162,4 @@ class TurtlebotWaypointController():
         #else if self.at_station:
 
         # else:
-        # self.pub()
+        self.pub_cmd()

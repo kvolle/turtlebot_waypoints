@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import turtlebot_waypoints.turtlebot_waypoints
+import turtlebot_waypoints.turtlebot_waypoints as twc
 import rospy
 
 if __name__=='__main__':
     rospy.init_node('waypoint_controller')
     r = rospy.Rate(10) # 10hz
-    turtle = TurtlebotWaypointController()
+    turtle = twc.TurtlebotWaypointController()
     while not rospy.is_shutdown():
         turtle.step()
         r.sleep()
