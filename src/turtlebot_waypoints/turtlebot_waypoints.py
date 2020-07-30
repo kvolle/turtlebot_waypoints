@@ -65,12 +65,7 @@ class TurtlebotWaypointController():
                 self.goal_y = np.append(self.goal_y, yspace)
             else:
                 self.goal_y = np.append(self.goal_y, yspace_neg)
-        print(self.goal_x)
-        print(self.goal_y)
 
-        #self.goal_x, self.goal_y = np.meshgrid(xspace, yspace)
-        #self.goal_x = np.reshape(self.goal_x, (-1))
-        #self.goal_y = np.reshape(self.goal_y, (-1))
 
         # Initialize pose, heading, goal, and indices
         self.x = -17.
@@ -106,26 +101,29 @@ class TurtlebotWaypointController():
             self.vel_msg.linear.x *= 0.9
             self.vel_msg.angular.z = sgn(self.heading_err)*min(self.max_z, self.kh_p*abs(self.heading_err), max(0.03, 2*abs(old_vel)))
             
-        elif (self.dist_err > TRANSLATION_THRESHOLD):
+        elif ((self.dist_err > TRANSLATION_THRESHOLD) and(self.at_grid_point==0)):
             # Drive forward and nothing else
             old_vel = self.vel_msg.linear.x
-            self.vel_msg.angular.z *= 0.9
+            self.vel_msg.angular.z = sgn(self.heading_err)*min(self.max_z, self.kh_p*abs(self.heading_err), max(0.03, 2*abs(old_vel)))
             self.vel_msg.linear.x = min(self.max_x, self.kd_p*self.dist_err*np.sqrt(self.dist_err), max(0.01, 1.1*old_vel))
 
 
         else:
-            if (~self.at_grid_point):
+            self.vel_msg.linear.x = 0.
+            if (self.at_grid_point==0):
                 self.at_grid_point = 1
                 self.commanded_yaw = np.linspace(self.theta, self.theta + TWO_PI, N_HEADINGS, endpoint=False)
-            if (self.rotation_index < N_HEADINGS):
-                if (self.samples < N_SAMPLES):
-                    self.samples +=1
+            if (self.rotation_index < N_HEADINGS-1):
+                if (self.samples < N_SAMPLES-1):
+                    self.samples += 1
+                    print("Goal: %d Heading: %d Samples: %d"%(self.goal_index, self.rotation_index, self.samples))
                 else:
                     self.samples = 0
                     self.rotation_index += 1
             else:
                 self.rotation_index = 0
                 self.goal_index += 1
+                self.at_grid_point = 0
             # Stop and stay stationary.
             # This needs measurement logic
 
@@ -152,7 +150,7 @@ class TurtlebotWaypointController():
 
     def pub_cmd(self):
         # Publish the commanded velocity
-        rospy.loginfo("D: %.3f H: %.3f X: %.3f Z: %.3f G: %d R: %d" % (self.dist_err, self.heading_err, self.vel_msg.linear.x, self.vel_msg.angular.z, self.goal_index, self.rotation_index))
+        #rospy.loginfo("D: %.3f H: %.3f X: %.3f Z: %.3f G: %d R: %d" % (self.dist_err, self.heading_err, self.vel_msg.linear.x, self.vel_msg.angular.z, self.goal_index, self.rotation_index))
         self.pub.publish(self.vel_msg)
 
     def step(self):
