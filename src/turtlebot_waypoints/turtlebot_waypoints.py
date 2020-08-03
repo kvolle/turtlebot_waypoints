@@ -4,6 +4,7 @@ from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
+import tldevice
 
 # Define constants
 TWO_PI = 6.28318
@@ -79,6 +80,8 @@ class TurtlebotWaypointController():
         self.samples = 0
         self.stationary = 0
 
+        # Setup the twinleaf
+        self.vmr = tldevice.Device("/dev/ttyUSB0")
     def pose_handler(self,pose):
         # Get x, y and yaw
         self.x = pose.position.x
@@ -116,7 +119,9 @@ class TurtlebotWaypointController():
             if (self.rotation_index < N_HEADINGS-1):
                 if (self.samples < N_SAMPLES-1):
                     self.samples += 1
-                    print("Goal: %d Heading: %d Samples: %d"%(self.goal_index, self.rotation_index, self.samples))
+                    row = vmr.data.stream_iter()
+                    rowstring = "\t".join(map(str, row)) + "\n"
+                    print("Goal: %d Heading: %d Samples: %d Data: %s"%(self.goal_index, self.rotation_index, self.samples, rowstring))
                 else:
                     self.samples = 0
                     self.rotation_index += 1
