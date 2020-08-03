@@ -121,7 +121,7 @@ class TurtlebotWaypointController():
                     self.samples += 1
                     row = vmr.data.stream_iter()
                     rowstring = "\t".join(map(str, row)) + "\n"
-                    print("Goal: %d Heading: %d Samples: %d Data: %s"%(self.goal_index, self.rotation_index, self.samples, rowstring))
+                    print("X: %2.5f Y: %2.5f Theta: $2.5f Samples: %d Data: %s"%(self.x, self.y, self.theta, self.samples, rowstring))
                 else:
                     self.samples = 0
                     self.rotation_index += 1
