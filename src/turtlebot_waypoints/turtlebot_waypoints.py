@@ -2,9 +2,9 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from tf_conversions.transformations import euler_from_quaternion, quaternion_from_euler
 import math
-import tldevice
+#import tldevice
 
 # Define constants
 TWO_PI = 6.28318
@@ -48,7 +48,7 @@ class TurtlebotWaypointController():
 
         # Define controller parameters
         self.kd_p = 2.
-        self.kh_p = 2.
+        self.kh_p = 1.5
         self.max_x = 0.6
         self.max_z = 0.5
         
@@ -81,7 +81,7 @@ class TurtlebotWaypointController():
         self.stationary = 0
 
         # Setup the twinleaf
-        self.vmr = tldevice.Device("/dev/ttyUSB0")
+ #       self.vmr = tldevice.Device("/dev/ttyUSB0")
     def pose_handler(self,pose):
         # Get x, y and yaw
         self.x = pose.position.x
@@ -119,7 +119,8 @@ class TurtlebotWaypointController():
             if (self.rotation_index < N_HEADINGS-1):
                 if (self.samples < N_SAMPLES-1):
                     self.samples += 1
-                    row = vmr.data.stream_iter()
+  #                  row = vmr.data.stream_iter()
+                    row="TEST\n"
                     rowstring = "\t".join(map(str, row)) + "\n"
                     print("X: %2.5f Y: %2.5f Theta: $2.5f Samples: %d Data: %s"%(self.x, self.y, self.theta, self.samples, rowstring))
                 else:
@@ -135,9 +136,9 @@ class TurtlebotWaypointController():
     def get_error(self):
         # Calculate the distance and heading errors. By making the heading error be -pi to pi, the turns should always be the closest direction.
         # Currently using the true atan2, consider approximate if runtime is an issue
-        x = self.goal_x[self.goal_index]
-        y = self.goal_y[self.goal_index]
-        self.dist_err = math.sqrt((x-self.x)*(x-self.x) + (y-self.y)*(y-self.y))
+        local_x = self.goal_x[self.goal_index]
+        local_y = self.goal_y[self.goal_index]
+        self.dist_err = math.sqrt((local_x-self.x)*(local_x-self.x) + (local_y-self.y)*(local_y-self.y))
         #self.heading_err = approx_atan(y, self.goal_x) - self.theta
         #if (self.at_grid_point):
         #    rospy.loginfo("HALP")
@@ -155,7 +156,7 @@ class TurtlebotWaypointController():
 
     def pub_cmd(self):
         # Publish the commanded velocity
-        #rospy.loginfo("D: %.3f H: %.3f X: %.3f Z: %.3f G: %d R: %d" % (self.dist_err, self.heading_err, self.vel_msg.linear.x, self.vel_msg.angular.z, self.goal_index, self.rotation_index))
+        rospy.loginfo("D: %.3f H: %.3f X: %.3f Z: %.3f G: %d R: %d x: %.3f y: %.3f t: %.3f" % (self.dist_err, self.heading_err, self.vel_msg.linear.x, self.vel_msg.angular.z, self.goal_index, self.rotation_index, self.x, self.y, self.theta))
         self.pub.publish(self.vel_msg)
 
     def step(self):
